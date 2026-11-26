@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enter Names</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <a class="brand" href="index.html">Secret <span>Santa</span></a>
+      <div class="steps"><b>1 Names</b> · 2 Draw · 3 Send</div>
+    </header>
+
+    <h1>Who's taking part?</h1>
+    <p class="muted">Each name can appear once. You need at least 3 people.</p>
+
+    <section class="card">
+      <form id="add" class="row" autocomplete="off">
+        <input type="text" id="name" placeholder="Type a name and press Enter" maxlength="40" style="flex:1;min-width:0" aria-label="Name">
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+      <p class="muted small" style="margin:8px 0 0">Tip: paste a list with one name per line or separated by commas.</p>
+      <div id="msg" class="notice err hidden" style="margin-top:12px" role="alert"></div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <h2 style="margin:0">People <span id="count" class="muted"></span></h2>
+        <button class="btn small" id="clear" type="button">Clear all</button>
+      </div>
+      <p class="muted small">Use “can't draw” for partners or housemates who already buy for each other. It works both ways.</p>
+      <ul class="people" id="list"></ul>
+      <p id="empty" class="muted small">No names yet.</p>
+    </section>
+
+    <section class="card">
+      <h2>Details for everyone's link</h2>
+      <div class="field"><label for="title">Event name</label><input type="text" id="title" maxlength="60"></div>
+      <div class="grid2">
+        <div class="field"><label for="budget">Budget</label><input type="text" id="budget" placeholder="e.g. $25" maxlength="20"></div>
+        <div class="field"><label for="date">Exchange date</label><input type="date" id="date"></div>
+      </div>
+      <div class="field"><label for="note">Note (optional)</label><textarea id="note" maxlength="240" placeholder="Wrap it in newspaper. No socks."></textarea></div>
+      <label class="row" style="font-weight:400;gap:8px"><input type="checkbox" id="noPairs"> No swapping pairs (if A draws B, B won't draw A)</label>
+    </section>
+
+    <div id="redraw" class="notice err hidden">A draw already exists. Changing the names and drawing again replaces it, and the old links will show outdated recipients.</div>
+    <div class="row end">
+      <button class="btn primary" id="go" type="button">Draw names</button>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+  (function () {
+    const S = Santa, $ = S.$;
+    const state = S.load();
+    const msg = $("#msg");
+
+    function say(text) { msg.textContent = text; msg.classList.toggle("hidden", !text); }
+
+    function add(raw) {
+      const parts = raw.split(/[\n,;]+/).map(S.norm).filter(Boolean);
+      const dupes = [];
+      for (const n of parts) {
+        if (state.people.some((p) => S.same(p.name, n))) { dupes.push(n); continue; }
+        state.people.push({ name: n, partner: "" });
+      }
+      say(dupes.length ? `Already on the list: ${dupes.join(", ")}. Each name can only be in the draw once.` : "");
+      changed();
+    }
+
+    function remove(name) {
+      state.people = state.people.filter((p) => p.name !== name);
+      for (const p of state.people) if (p.partner === name) p.partner = "";
+      changed();
+    }
+
+    function setPartner(name, partner) {
+      for (const p of state.people) {
+        // a partner rule is mutual: clear any old link on both sides, then set the new one
+        if (p.name === name || p.partner === name || (partner && (p.name === partner || p.partner === partner))) p.partner = "";
+      }
+      if (partner) {
+        state.people.find((p) => p.name === name).partner = partner;
+        state.people.find((p) => p.name === partner).partner = name;
+      }
+      changed();
+    }
+
+    function changed() { S.save(state); render(); }
+
+    function render() {
+      const list = $("#list"); list.replaceChildren();
+      state.people.forEach((p, i) => {
+        const sel = S.el("select", { "aria-label": `${p.name} can't draw`, onchange: (e) => setPartner(p.name, e.target.value) },
+          S.el("option", { value: "" }, "can't draw…"),
+          state.people.filter((o) => o.name !== p.name).map((o) => S.el("option", { value: o.name, selected: o.name === p.partner }, o.name)));
+        list.append(S.el("li", {},
+          S.el("span", { class: "num" }, i + 1),
+          S.el("span", { class: "name" }, p.name),
+          sel,
+          S.el("button", { class: "x", type: "button", title: `Remove ${p.name}`, "aria-label": `Remove ${p.name}`, onclick: () => remove(p.name) }, "×")));
+      });
+      $("#count").textContent = state.people.length ? `(${state.people.length})` : "";
+      $("#empty").classList.toggle("hidden", state.people.length > 0);
+      $("#go").disabled = state.people.length < 3;
+      $("#redraw").classList.toggle("hidden", !state.draw);
+    }
+
+    $("#add").addEventListener("submit", (e) => { e.preventDefault(); const i = $("#name"); add(i.value); i.value = ""; i.focus(); });
+    $("#name").addEventListener("paste", (e) => {
+      const t = e.clipboardData.getData("text");
+      if (/[\n,;]/.test(t)) { e.preventDefault(); add(t); }
+    });
+    $("#clear").addEventListener("click", () => {
+      if (state.people.length && confirm("Remove every name?")) { state.people = []; changed(); }
+    });
+
+    for (const id of ["title", "budget", "date", "note"]) {
+      const input = $("#" + id);
+      input.value = state.event[id] || "";
+      input.addEventListener("input", () => { state.event[id] = input.value; S.save(state); });
+    }
+    $("#noPairs").checked = state.noPairs;
+    $("#noPairs").addEventListener("change", (e) => { state.noPairs = e.target.checked; S.save(state); });
+
+    $("#go").addEventListener("click", () => {
+      try {
+        state.draw = { at: Date.now(), pairs: S.makeDraw(state.people, state.noPairs) };
+        state.handedOut = {};
+        S.save(state);
+        location.href = "draw.html";
+      } catch (err) { say(err.message); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    });
+
+    render();
+  })();
+  </script>
+</body>
+</html>

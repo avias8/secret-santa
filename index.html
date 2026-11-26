@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Secret Santa Draw</title>
+  <meta name="description" content="Draw names for a Secret Santa and send everyone a private link to their recipient.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top"><a class="brand" href="index.html">Secret <span>Santa</span></a></header>
+
+    <section class="hero">
+      <h1>Draw names, keep the secret.</h1>
+      <p class="lede">Enter your group, draw once, and send each person a private link that shows only who they're buying for.</p>
+      <div class="row" style="justify-content:center">
+        <a class="btn primary" href="names.html">Start with names</a>
+        <a class="btn hidden" id="resume" href="draw.html">See current draw</a>
+      </div>
+    </section>
+
+    <section class="how">
+      <div class="card"><div class="n">1</div><h3>Enter names</h3><p class="muted small">Add everyone taking part, plus partners who shouldn't draw each other.</p></div>
+      <div class="card"><div class="n">2</div><h3>Draw</h3><p class="muted small">Every name is drawn exactly once and nobody gets themself.</p></div>
+      <div class="card"><div class="n">3</div><h3>Send links</h3><p class="muted small">Each link reveals one recipient, or pass one phone around the room.</p></div>
+    </section>
+
+    <p class="muted small" style="margin-top:28px;text-align:center">Nothing is uploaded. Names stay in this browser; the assignment lives inside each person's link.</p>
+  </main>
+  <script src="app.js"></script>
+  <script>
+    Santa.snow();
+    if (Santa.load().draw) Santa.$("#resume").classList.remove("hidden");
+  </script>
+</body>
+</html>

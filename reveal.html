@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your Secret Santa</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap reveal">
+    <div id="bad" class="card hidden">
+      <h2>This link doesn't work</h2>
+      <p class="muted">It may have been cut off when it was copied. Ask the organiser to send it again.</p>
+    </div>
+
+    <div id="ok" class="hidden">
+      <p class="muted" id="event"></p>
+      <h1 id="hello"></h1>
+      <p class="muted" id="hint">Tap the present when nobody's looking.</p>
+      <button class="gift" id="gift" type="button" aria-label="Open your present">
+        <span class="box"></span><span class="ribbon-v"></span><span class="lid"></span><span class="bow"></span>
+      </button>
+      <div class="result" id="result" aria-live="polite">
+        <p class="muted" style="margin:0">You're buying a gift for</p>
+        <div class="recipient" id="recipient"></div>
+        <div class="facts" id="facts"></div>
+        <p id="note" class="muted" style="max-width:28rem;margin:0 auto 16px"></p>
+        <button class="btn" id="hide" type="button">Hide again</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+  (function () {
+    const S = Santa, $ = S.$;
+    let data;
+    try { data = S.decode(location.hash.slice(1)); if (!data.g || !data.r) throw 0; }
+    catch (_) { $("#bad").classList.remove("hidden"); return; }
+
+    S.snow();
+    document.title = `${data.t || "Secret Santa"} for ${data.g}`;
+    $("#ok").classList.remove("hidden");
+    $("#event").textContent = data.t || "Secret Santa";
+    $("#hello").textContent = `Hi ${data.g}!`;
+
+    const facts = $("#facts");
+    if (data.b) facts.append(S.el("span", { class: "chip" }, "Budget " + data.b));
+    if (data.d) facts.append(S.el("span", { class: "chip" }, S.formatDate(data.d)));
+    $("#note").textContent = data.n || "";
+
+    const gift = $("#gift"), result = $("#result");
+    gift.addEventListener("click", () => {
+      if (gift.classList.contains("open")) return;
+      $("#recipient").textContent = data.r;
+      gift.classList.add("open"); result.classList.add("show");
+      $("#hint").classList.add("hidden");
+    });
+    $("#hide").addEventListener("click", () => {
+      gift.classList.remove("open"); result.classList.remove("show");
+      $("#hint").classList.remove("hidden");
+      setTimeout(() => ($("#recipient").textContent = ""), 400);
+    });
+  })();
+  </script>
+</body>
+</html>
