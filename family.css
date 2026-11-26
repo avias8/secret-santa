@@ -200,6 +200,7 @@ h1 {
 .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .link { display: inline-block; margin-top: 10px; background: none; border: 0; color: var(--cream-dim); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 8px; }
 
+.lock-note { margin: 16px 0 0; font-size: .85rem; color: var(--cream-dim); opacity: .8; }
 .facts { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
 .chip { border: 1px solid rgba(251, 243, 228, .3); border-radius: 999px; padding: 6px 14px; font-size: .92rem; color: var(--cream); background: rgba(0, 0, 0, .15); }
 .note { font-style: italic; color: var(--cream-dim); max-width: 26rem; margin: 0 auto 18px; }

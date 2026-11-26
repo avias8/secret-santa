@@ -240,19 +240,42 @@
   }
 
   const meKey = "santa-me:" + fam.id;
-  const drawnKey = "santa-drawn:" + fam.id;
-  const drawn = S.store.get(drawnKey, {});
+
+  // ---- The lock: once someone draws on this phone, the phone belongs to them for this draw.
+  // Kept in both localStorage and a cookie; whichever survives restores the other.
+  const lockKey = "santa-lock:" + fam.id;
+  const cookieName = "santa_lock_" + fam.id;
+  const cookiePath = new URL(".", location.href).pathname;
+  function readCookie() {
+    const m = document.cookie.match(new RegExp("(?:^|; )" + cookieName + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+  function setLock(name) {
+    S.store.set(lockKey, name);
+    document.cookie = `${cookieName}=${encodeURIComponent(name)}; max-age=${60 * 60 * 24 * 400}; path=${cookiePath}; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+  }
+  function clearLock() {
+    try { localStorage.removeItem(lockKey); } catch (_) {}
+    document.cookie = `${cookieName}=; max-age=0; path=${cookiePath}`;
+  }
+  function getLock() {
+    const name = S.store.get(lockKey, "") || readCookie();
+    if (name && names.includes(name)) { setLock(name); return name; }
+    return "";
+  }
+  let lock = getLock();
 
   function goPick() {
+    if (lock) { goLocked(); return; }
     me = null; S.store.set(meKey, "");
     $("#tags").replaceChildren(...sorted.map((n, i) => {
-      const wrap = tagEl(n, i, { done: drawn[n] });
+      const wrap = tagEl(n, i);
       const btn = wrap.firstChild;
-      btn.setAttribute("aria-label", drawn[n] ? `${n}, already drawn` : n);
+      btn.setAttribute("aria-label", n);
       btn.addEventListener("click", () => {
         Sound.ding();
         btn.classList.add("picked");
-        setTimeout(() => goDraw(n), reduced ? 0 : 380);
+        setTimeout(() => { history.pushState({ s: "draw" }, ""); goDraw(n); }, reduced ? 0 : 380);
       });
       return wrap;
     }));
@@ -261,9 +284,13 @@
   }
 
   function goDraw(name) {
+    if (lock && name !== lock) { goLocked(); return; }
     me = name; busy = false;
     S.store.set(meKey, name);
     $("#notMe").textContent = `Not ${name}?`;
+    $("#notMe").classList.toggle("hidden", !!lock);
+    $("#lockNote").classList.toggle("hidden", !lock);
+    $("#lockNote").textContent = `🔒 This phone is ${name}'s`;
     $("#sack").className = "sack"; $("#sack").disabled = false;
     $("#bigtag").classList.add("hidden"); $("#bigtag").classList.remove("pop");
     $("#from").textContent = name; $("#to").textContent = ""; $("#to").className = "val";
@@ -271,12 +298,18 @@
     $("#before").classList.remove("hidden");
     $("#after").classList.add("hidden");
     $("#drawBtn").disabled = false;
-    $("#drawBtn").textContent = drawn[name] ? "Peek at my tag" : "🎁 Reach into the sack";
+    $("#drawBtn").textContent = lock ? "Peek at my tag" : "🎁 Reach into the sack";
     show("drawStep");
     window.scrollTo({ top: 0 });
-    say(drawn[name]
-      ? `Welcome back, ${name}! You've already pulled your name. Want to peek at it again?`
+    say(lock
+      ? `Welcome back, ${name}! Your tag is safe in my sack. Tap to peek at it again.`
       : `Hi ${name}! Reach into my sack and pull out a name. No peeking!`);
+  }
+
+  // A locked phone always opens on its owner's tag, already showing.
+  function goLocked() {
+    goDraw(lock);
+    draw({ quiet: true });
   }
 
   function showFacts() {
@@ -287,14 +320,20 @@
     $("#note").classList.toggle("hidden", !fam.note);
   }
 
-  async function draw() {
+  async function draw(opts = {}) {
     if (busy) return;
     const token = fam.drawn.draws[me];
     if (!token) { say("Hmm, your name isn't on my list this year. Ask the organiser!"); return; }
     busy = true;
     const recipient = S.unscramble(token);
-    const again = !!drawn[me];
-    drawn[me] = true; S.store.set(drawnKey, drawn);
+    const again = !!lock;
+    if (!lock) {                       // first draw on this phone: lock it to this person
+      lock = me; setLock(me);
+      $("#notMe").classList.add("hidden");
+      $("#lockNote").textContent = `🔒 This phone is ${me}'s`;
+      $("#lockNote").classList.remove("hidden");
+      history.replaceState({ s: "draw" }, "");
+    }
     $("#drawBtn").disabled = true; $("#sack").disabled = true;
     const sack = $("#sack"), tag = $("#bigtag"), to = $("#to");
 
@@ -308,7 +347,7 @@
       sack.classList.remove("shake");
     }
     sack.classList.add("gone");
-    await wait(300);
+    await wait(opts.quiet ? 0 : 300);
     $("#before").classList.add("hidden");
     tag.classList.remove("hidden"); tag.classList.add("pop");
 
@@ -329,6 +368,8 @@
       Sound.jingle();
       const s = $("#santa"); s.classList.remove("jolly"); void s.offsetWidth; s.classList.add("jolly");
       say(`Ho ho ho! ${me}, you're ${recipient}'s Secret Santa! Shh… that's our little secret.`);
+    } else if (opts.quiet) {
+      say(`Welcome back, ${me}! Here's your tag. Shh… it's still our secret.`);
     } else {
       Sound.ding();
       say("There it is! Remember, it's a secret.");
@@ -336,15 +377,38 @@
     busy = false;
   }
 
-  $("#drawBtn").addEventListener("click", draw);
-  $("#sack").addEventListener("click", draw);
-  $("#notMe").addEventListener("click", goPick);
+  $("#drawBtn").addEventListener("click", () => draw());
+  $("#sack").addEventListener("click", () => draw());
+  $("#notMe").addEventListener("click", () => { if (!lock) goPick(); });
   $("#done").addEventListener("click", () => {
     goDraw(me);
     say(`Merry Christmas, ${me}! Pop back any time to peek at your tag.`);
   });
 
-  // Returning on the same phone: go straight to your own sack (nothing is shown until you tap).
-  const remembered = S.store.get(meKey, "");
-  if (remembered && names.includes(remembered)) goDraw(remembered); else goPick();
+  // Browser back/forward: a locked phone stays on its owner's tag; otherwise back returns to the tags.
+  addEventListener("popstate", () => {
+    if (busy) return;
+    if (lock) goLocked();
+    else if (history.state && history.state.s === "draw" && me) goDraw(me);
+    else goPick();
+  });
+
+  // The organiser's unlock link (for a phone shared between people): ?unlock=<code>
+  const params = new URLSearchParams(location.search);
+  let unlocked = false;
+  if (params.has("unlock")) {
+    if (params.get("unlock") === await S.unlockCode(fam.id)) {
+      clearLock(); lock = ""; S.store.set(meKey, ""); unlocked = true;
+    }
+    history.replaceState(null, "", location.pathname);
+  }
+
+  history.replaceState({ s: "start" }, "");
+  if (lock) goLocked();
+  else {
+    const remembered = S.store.get(meKey, "");
+    if (!unlocked && remembered && names.includes(remembered)) { history.pushState({ s: "draw" }, ""); goDraw(remembered); }
+    else goPick();
+  }
+  if (unlocked) say("Ho ho ho! This phone is unlocked. Whose turn is it? Tap your name tag.");
 })();

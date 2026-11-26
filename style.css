@@ -195,6 +195,10 @@ input[type=password] { width: 100%; font: inherit; color: var(--ink); background
 .invite-url { font-family: ui-monospace, Consolas, monospace; font-size: .85rem; background: var(--gold-soft); border-radius: 8px; padding: 6px 10px; overflow-wrap: anywhere; margin: 0 0 10px; }
 @media (max-width: 520px) { .invite { flex-direction: column; text-align: center; } .invite .row { justify-content: center; } }
 
+.unlock { margin-top: 16px; }
+.unlock summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--muted); }
+.unlock[open] summary { margin-bottom: 8px; }
+
 /* Snow */
 .snow { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -1; }
 .snow i { position: absolute; top: -10px; border-radius: 50%; background: var(--snow); box-shadow: 0 0 2px rgba(0,0,0,.08); animation: fall linear infinite; }

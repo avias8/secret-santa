@@ -108,6 +108,13 @@
     return new TextDecoder().decode(end === -1 ? body : body.subarray(0, end));
   }
 
+  // Code for the organiser's "unlock this phone" link, derived from the draw's id
+  // (so it changes with every new draw and needs nothing extra stored).
+  async function unlockCode(id) {
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("santa-unlock:" + id));
+    return Array.from(new Uint8Array(hash).slice(0, 4), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
   // ---------- helpers ----------
   const $ = (sel, root = document) => root.querySelector(sel);
   function el(tag, attrs = {}, ...kids) {
@@ -183,5 +190,5 @@
     }
   };
 
-  window.Santa = { norm, same, shuffle, makeDraw, verify, scramble, unscramble, $, el, store, formatDate, snow, gh };
+  window.Santa = { norm, same, shuffle, makeDraw, verify, scramble, unscramble, unlockCode, $, el, store, formatDate, snow, gh };
 })();

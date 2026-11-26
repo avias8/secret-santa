@@ -77,6 +77,12 @@
             <a class="btn" href="../" target="_blank" rel="noopener">Open family page</a>
             <button class="btn" id="reopenBtn" type="button">Reopen the hat</button>
           </div>
+          <details class="unlock">
+            <summary>Two people sharing one phone?</summary>
+            <p class="muted small">After someone draws, their phone stays locked to them and can't pick another name. If a second person needs that phone, open this link on it. It unlocks that phone only, and it changes if you redraw. Keep it to yourself.</p>
+            <p class="invite-url" id="unlockUrl"></p>
+            <button class="btn small" id="copyUnlock" type="button">Copy unlock link</button>
+          </details>
         </div>
       </section>
 
@@ -220,6 +226,7 @@
       $("#drawnState").classList.toggle("hidden", !d.drawn);
       $("#drawBtn").disabled = people.length < 3;
       $("#drawBtn").title = people.length < 3 ? "Add at least 3 names" : "";
+      if (d.drawn && d.id) S.unlockCode(d.id).then((c) => { $("#unlockUrl").textContent = new URL("../?unlock=" + c, location.href).href; });
       if (d.drawn) $("#drawnMsg").textContent = `✓ Drawn ${new Date(d.drawn.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. ${people.length} names, each drawn exactly once. The family can draw now.`;
 
       for (const id of ["title", "budget", "date", "note"]) if (document.activeElement !== $("#" + id)) $("#" + id).value = d[id] || "";
@@ -280,6 +287,12 @@
     $("#share").addEventListener("click", () => {
       if (navigator.share) navigator.share({ title: "Family Secret Santa", text: inviteText, url: familyUrl }).catch(() => {});
       else window.open("https://wa.me/?text=" + encodeURIComponent(inviteText + " " + familyUrl), "_blank", "noopener");
+    });
+
+    $("#copyUnlock").addEventListener("click", async (e) => {
+      try { await navigator.clipboard.writeText($("#unlockUrl").textContent); e.target.textContent = "Copied ✓"; }
+      catch (_) { e.target.textContent = "Copy failed"; }
+      setTimeout(() => (e.target.textContent = "Copy unlock link"), 1600);
     });
 
     $("#disconnect").addEventListener("click", () => {
