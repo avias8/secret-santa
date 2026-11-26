@@ -4,162 +4,77 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Family Secret Santa</title>
-  <meta name="description" content="Christmas 2026: find your name and draw who you're buying for.">
+  <meta name="description" content="Christmas 2026: find your name tag and pull a name from Santa's sack.">
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#5c0e1b">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+  <meta name="theme-color" content="#4f0b17">
+  <meta property="og:title" content="🎅 Family Secret Santa 2026">
+  <meta property="og:description" content="Tap your name and pull a name from Santa's sack!">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎅</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Inter:wght@400;600&family=Mountains+of+Christmas:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="family.css">
 </head>
 <body>
+  <div class="lights" id="lights" aria-hidden="true"></div>
+  <div class="sky" aria-hidden="true"><div class="sleigh" id="sleigh"></div></div>
+  <div class="ground" aria-hidden="true"></div>
+  <div class="fx" id="fx" aria-hidden="true"></div>
+  <button class="sound" id="sound" type="button" aria-label="Sound on">🔔</button>
+
   <main class="wrap">
-    <svg class="holly" viewBox="0 0 54 30" aria-hidden="true">
-      <path d="M27 18C19 6 8 4 2 9c5 1 6 5 4 8 4-1 7 1 7 5 4-3 9-4 14-4z" fill="#2f7356"/>
-      <path d="M27 18c8-12 19-14 25-9-5 1-6 5-4 8-4-1-7 1-7 5-4-3-9-4-14-4z" fill="#265f47"/>
-      <circle cx="23" cy="20" r="4" fill="#e04a52"/><circle cx="31" cy="20" r="4" fill="#e04a52"/><circle cx="27" cy="14.5" r="4" fill="#ef5f66"/>
-    </svg>
+    <div class="moon" aria-hidden="true"></div>
     <div class="eyebrow">Christmas 2026</div>
     <h1 id="title">Secret Santa</h1>
 
-    <section id="wait"><p class="lede">Checking the hat…</p></section>
-    <section id="error" class="hidden"><p class="lede">The hat couldn't be reached. Try refreshing the page.</p></section>
+    <div class="santa-row">
+      <div class="santa" id="santa" role="img" aria-label="Santa"></div>
+      <div class="bubble" id="bubble" aria-hidden="true"></div>
+      <p class="sr" id="said" aria-live="polite"></p>
+    </div>
 
     <!-- hat still open -->
     <section id="open" class="hidden">
-      <p class="lede">The hat is still open. Once everyone's in, you'll be able to draw here.</p>
-      <div class="waiting" id="soFarBox">
-        <p class="eyebrow" id="soFarCount" style="margin:0 0 8px"></p>
-        <div class="so-far" id="soFar"></div>
-      </div>
+      <div class="tags" id="soFar"></div>
     </section>
 
     <!-- pick your name -->
     <section id="pick" class="hidden">
-      <p class="lede">Find your tag, then draw who you're buying for.</p>
       <div class="tags" id="tags"></div>
     </section>
 
-    <!-- draw -->
+    <!-- Santa's sack -->
     <section id="drawStep" class="hidden">
-      <p class="lede" id="hello"></p>
-      <div class="bigtag">
+      <div id="before">
+        <button class="sack" id="sack" type="button" aria-label="Reach into Santa's sack"></button>
+        <button class="btn gold" id="drawBtn" type="button">🎁 Reach into the sack</button><br>
+        <button class="link" id="notMe" type="button">Not you?</button>
+      </div>
+
+      <div class="bigtag hidden" id="bigtag">
         <div class="bigtag-body">
+          <svg class="holly-corner" viewBox="0 0 54 30" aria-hidden="true">
+            <path d="M27 18C19 6 8 4 2 9c5 1 6 5 4 8 4-1 7 1 7 5 4-3 9-4 14-4z" fill="#2f7356"/>
+            <path d="M27 18c8-12 19-14 25-9-5 1-6 5-4 8-4-1-7 1-7 5-4-3-9-4-14-4z" fill="#265f47"/>
+            <circle cx="23" cy="20" r="4" fill="#d43a44"/><circle cx="31" cy="20" r="4" fill="#d43a44"/><circle cx="27" cy="14.5" r="4" fill="#e65059"/>
+          </svg>
           <div class="line"><span class="lbl">From</span><span class="val" id="from"></span></div>
           <div class="line"><span class="lbl">To</span><span class="val" id="to" aria-live="polite"></span></div>
         </div>
         <div class="seal" id="seal" aria-hidden="true">✻</div>
       </div>
-      <div id="before">
-        <button class="btn gold" id="drawBtn" type="button">Draw a name</button><br>
-        <button class="link" id="notMe" type="button">Not you? Go back</button>
-      </div>
+
       <div id="after" class="hidden">
         <div class="facts" id="facts"></div>
         <p class="note" id="note"></p>
-        <p class="secret">Shh… keep it secret 🤫</p>
-        <button class="btn" id="done" type="button">Done</button>
+        <button class="btn" id="done" type="button">Hide my tag</button>
       </div>
     </section>
 
-    <p class="foot">Every name is in the hat exactly once · <a href="admin/">Organiser</a></p>
+    <p class="foot">Every name is in Santa's sack exactly once · <a href="admin/">Organiser</a></p>
   </main>
 
   <script src="app.js"></script>
-  <script>
-  (async function () {
-    const S = Santa, $ = S.$;
-    const show = (id) => ["wait", "error", "open", "pick", "drawStep"].forEach((s) => $("#" + s).classList.toggle("hidden", s !== id));
-
-    let fam = null;
-    try {
-      const res = await fetch("family.json?" + Date.now(), { cache: "no-store" });
-      if (res.ok) fam = await res.json();
-      else if (res.status !== 404) throw new Error(res.status);
-    } catch (_) { show("error"); return; }
-
-    S.snow();
-    if (fam && fam.title) { $("#title").textContent = fam.title; document.title = fam.title; }
-    const names = fam ? fam.people.map((p) => p.name) : [];
-
-    // Hat still open: show who's been added so far.
-    if (!fam || !fam.drawn) {
-      $("#soFarCount").textContent = names.length ? `${names.length} in the hat so far` : "";
-      $("#soFar").replaceChildren(...names.map((n) => S.el("span", {}, n)));
-      $("#soFarBox").classList.toggle("hidden", !names.length);
-      show("open");
-      return;
-    }
-
-    const memKey = "santa-drawn:" + fam.id;
-    const drawn = S.store.get(memKey, {});
-    let me = null;
-
-    function renderTags() {
-      $("#tags").replaceChildren(...names.slice().sort((a, b) => a.localeCompare(b)).map((name) =>
-        S.el("button", { class: "tag", type: "button", onclick: () => choose(name), "aria-label": drawn[name] ? `${name}, already drawn` : name },
-          S.el("span", { class: "tag-body" },
-            S.el("span", { class: "hand" }, name),
-            drawn[name] ? S.el("span", { class: "done" }, "✓ drawn") : ""))));
-      show("pick");
-    }
-
-    function choose(name) {
-      me = name;
-      $("#from").textContent = name;
-      $("#to").className = "val"; $("#to").textContent = "";
-      $("#seal").classList.remove("on");
-      $("#hello").textContent = drawn[name] ? `Welcome back, ${name}. You've already drawn.` : `Hi ${name}! Ready to draw?`;
-      $("#drawBtn").textContent = drawn[name] ? "Show my name again" : "Draw a name";
-      $("#drawBtn").disabled = false;
-      $("#before").classList.remove("hidden");
-      $("#after").classList.add("hidden");
-      show("drawStep");
-      window.scrollTo({ top: 0 });
-    }
-
-    function land(recipient) {
-      const to = $("#to");
-      to.className = "val final"; to.textContent = recipient;
-      $("#seal").classList.add("on");
-      $("#hello").textContent = `${me}, you're the Secret Santa for…`;
-      const facts = $("#facts"); facts.replaceChildren();
-      if (fam.budget) facts.append(S.el("span", { class: "chip" }, "🎁 Budget " + fam.budget));
-      if (fam.date) facts.append(S.el("span", { class: "chip" }, "📅 " + S.formatDate(fam.date)));
-      $("#note").textContent = fam.note || "";
-      $("#note").classList.toggle("hidden", !fam.note);
-      $("#before").classList.add("hidden");
-      $("#after").classList.remove("hidden");
-    }
-
-    $("#drawBtn").addEventListener("click", () => {
-      const token = fam.drawn.draws[me];
-      if (!token) { $("#hello").textContent = "Your name isn't in this year's draw. Ask the organiser."; return; }
-      const recipient = S.unscramble(token);
-      $("#drawBtn").disabled = true;
-      const again = drawn[me];
-      drawn[me] = true; S.store.set(memKey, drawn);
-      if (again || matchMedia("(prefers-reduced-motion: reduce)").matches) { land(recipient); return; }
-
-      // Shuffle through the other names, slowing down, then the real result.
-      const others = names.filter((n) => n !== me);
-      const seq = [];
-      while (seq.length < 18) seq.push(...S.shuffle(others));
-      const to = $("#to");
-      let i = 0, delay = 55;
-      (function tick() {
-        if (i >= 18) { land(recipient); return; }
-        to.className = "val spin"; to.textContent = seq[i++];
-        delay *= 1.14;
-        setTimeout(tick, delay);
-      })();
-    });
-
-    $("#notMe").addEventListener("click", renderTags);
-    $("#done").addEventListener("click", () => { me = null; renderTags(); });
-    renderTags();
-  })();
-  </script>
+  <script src="family.js"></script>
 </body>
 </html>

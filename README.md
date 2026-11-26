@@ -4,7 +4,9 @@ Live at https://www.avivarma.ca/secret-santa/
 
 ## For the family
 
-Open the page, tap your name tag, press **Draw a name**. Until the organiser closes the hat, the page shows who's in so far.
+Open the page, tap your name tag, and reach into Santa's sack. Santa talks you through it.
+The phone remembers who you are, so next time it opens straight to your sack (nothing is shown until you tap "Peek at my tag").
+Until the organiser closes the hat, Santa shows who's in so far. The 🔔 button turns the jingle bells off.
 
 ## For the organiser: `/admin/`
 
@@ -17,7 +19,8 @@ It's stored only in that browser ("Disconnect this device" forgets it).
 Then:
 1. Add everyone's names (paste a list to add many at once). Mark couples with the ♥ selector so they don't draw each other.
 2. Open **Details** for budget, date and a note.
-3. When everyone's in, press **Close the hat & draw**.
+3. Use **Invite the family** to share the link or show the QR code.
+4. When everyone's in, press **Close the hat & draw**.
 
 Changing the list after the draw cancels it (the page asks first). Anyone who already drew would then need to draw again.
 
@@ -39,7 +42,7 @@ Recipients are stored scrambled and padded to the same length. It isn't real enc
 
 | File | Purpose |
 | --- | --- |
-| `index.html`, `family.css` | Family page: gift tags, pick your name, draw |
+| `index.html`, `family.css`, `family.js` | Family page: Santa guide, swinging name tags, the sack, confetti, synthesised bells |
 | `admin/index.html` | Organiser page: live names list, couples, details, draw |
 | `family.json` | The live list and draw (created by the organiser page) |
 | `app.js` | Draw, check, scrambling, GitHub save, helpers |

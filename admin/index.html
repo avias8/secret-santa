@@ -80,6 +80,20 @@
         </div>
       </section>
 
+      <!-- Invite -->
+      <section class="card invite">
+        <div class="invite-qr" id="qr" aria-label="QR code for the family page"></div>
+        <div class="invite-body">
+          <h2>Invite the family</h2>
+          <p class="muted small">Send this link to the family group chat, or let people scan the code off your screen. They tap their name and draw. Nothing to sign up for.</p>
+          <p class="invite-url" id="familyUrl"></p>
+          <div class="row">
+            <button class="btn primary small" id="share" type="button">Share link</button>
+            <button class="btn small" id="copy" type="button">Copy link</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Details -->
       <details class="card details">
         <summary><h2 style="display:inline">Details</h2> <span class="muted small">budget, date, note</span></summary>
@@ -98,6 +112,7 @@
     </div>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <script src="../app.js"></script>
   <script>
   (function () {
@@ -248,6 +263,24 @@
     }
     for (const id of ["title", "budget", "date", "note"]) $("#" + id).addEventListener("input", saveDetails);
     $("#noPairs").addEventListener("change", saveDetails);
+
+    // ---- invite
+    const familyUrl = new URL("../", location.href).href;
+    const inviteText = "🎅 Ho ho ho! Our family Secret Santa is ready. Tap your name and pull a name from Santa's sack:";
+    $("#familyUrl").textContent = familyUrl.replace(/^https?:\/\//, "");
+    try {
+      const qr = qrcode(0, "M"); qr.addData(familyUrl); qr.make();
+      $("#qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    } catch (_) { $("#qr").classList.add("hidden"); }
+    $("#copy").addEventListener("click", async (e) => {
+      try { await navigator.clipboard.writeText(familyUrl); e.target.textContent = "Copied ✓"; }
+      catch (_) { e.target.textContent = "Copy failed"; }
+      setTimeout(() => (e.target.textContent = "Copy link"), 1600);
+    });
+    $("#share").addEventListener("click", () => {
+      if (navigator.share) navigator.share({ title: "Family Secret Santa", text: inviteText, url: familyUrl }).catch(() => {});
+      else window.open("https://wa.me/?text=" + encodeURIComponent(inviteText + " " + familyUrl), "_blank", "noopener");
+    });
 
     $("#disconnect").addEventListener("click", () => {
       if (confirm("Forget the GitHub token on this device? You'll need to paste it again to edit the list.")) { gh.setToken(""); location.reload(); }
