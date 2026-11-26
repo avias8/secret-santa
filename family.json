@@ -29,17 +29,17 @@
     },
     {
       "name": "Tanya",
-      "partner": "Vani"
+      "partner": "Honey"
     },
     {
       "name": "Vani",
-      "partner": "Tanya"
+      "partner": ""
     },
     {
       "name": "Honey",
-      "partner": ""
+      "partner": "Tanya"
     }
   ],
   "drawn": null,
-  "updated": "2026-11-26T16:54:49.084Z"
+  "updated": "2026-11-26T16:54:56.733Z"
 }
