@@ -139,5 +139,49 @@
     document.body.prepend(box);
   }
 
-  window.Santa = { norm, same, shuffle, makeDraw, verify, scramble, unscramble, $, el, store, formatDate, snow };
+  // ---------- GitHub: the live family.json in the repo ----------
+  // Used by the organiser page only. Every change is a small commit to family.json.
+  const REPO = "avias8/secret-santa", FILE = "family.json", BRANCH = "main";
+  const API = `https://api.github.com/repos/${REPO}/contents/${FILE}`;
+  const TOKEN_KEY = "santa-gh-token";
+  const utf8ToB64 = (s) => { const b = new TextEncoder().encode(s); let bin = ""; for (const x of b) bin += String.fromCharCode(x); return btoa(bin); };
+  const b64ToUtf8 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), (c) => c.charCodeAt(0)));
+
+  const gh = {
+    repo: REPO,
+    token() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (_) { return ""; } },
+    setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (_) {} },
+    headers() { return { Authorization: "Bearer " + gh.token(), Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" }; },
+    async fail(res) {
+      let detail = ""; try { detail = (await res.json()).message || ""; } catch (_) {}
+      const e = new Error(
+        res.status === 401 ? "GitHub didn't accept that token. Check it was copied in full and hasn't expired." :
+        res.status === 403 || res.status === 404 ? `This token can't edit ${REPO}. Give it access to that repository with Contents: Read and write.` :
+        `GitHub error ${res.status}${detail ? ": " + detail : ""}`);
+      e.status = res.status; throw e;
+    },
+    // -> { data, sha } ; data is null when the file doesn't exist yet
+    async load() {
+      const res = await fetch(`${API}?ref=${BRANCH}&t=${Date.now()}`, { headers: gh.headers(), cache: "no-store" });
+      if (res.status === 404) {
+        // 404 can also mean "no access"; check the repo itself is visible to this token
+        const repo = await fetch(`https://api.github.com/repos/${REPO}`, { headers: gh.headers(), cache: "no-store" });
+        if (!repo.ok) await gh.fail(repo);
+        return { data: null, sha: null };
+      }
+      if (!res.ok) await gh.fail(res);
+      const j = await res.json();
+      return { data: JSON.parse(b64ToUtf8(j.content)), sha: j.sha };
+    },
+    async save(data, sha, message) {
+      const body = { message, branch: BRANCH, content: utf8ToB64(JSON.stringify(data, null, 2) + "\n") };
+      if (sha) body.sha = sha;
+      const res = await fetch(API, { method: "PUT", headers: Object.assign({ "Content-Type": "application/json" }, gh.headers()), body: JSON.stringify(body) });
+      if (res.status === 409 || res.status === 422) { const e = new Error("conflict"); e.conflict = true; throw e; }
+      if (!res.ok) await gh.fail(res);
+      return (await res.json()).content.sha;
+    }
+  };
+
+  window.Santa = { norm, same, shuffle, makeDraw, verify, scramble, unscramble, $, el, store, formatDate, snow, gh };
 })();

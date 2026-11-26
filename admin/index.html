@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Organiser Setup</title>
+  <title>Organiser Names</title>
   <meta name="robots" content="noindex">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,153 +13,270 @@
 </head>
 <body>
   <main class="wrap wide">
-    <div class="eyebrow">Organiser</div>
-    <h1 class="title" style="font-size:clamp(2rem,7vw,2.6rem)">Set up the hat</h1>
-    <p class="muted">Enter the family's names before anyone draws. The draw happens here, in advance, so no name can ever come out twice. You won't see who got whom, so you can take part too.</p>
-
-    <div id="live" class="notice ok hidden"></div>
-
-    <section class="card">
-      <h2>Names</h2>
-      <form id="add" class="row" autocomplete="off">
-        <input type="text" id="name" placeholder="Type a name and press Enter" maxlength="40" style="flex:1;min-width:0" aria-label="Name">
-        <button class="btn primary" type="submit">Add</button>
-      </form>
-      <p class="muted small" style="margin:8px 0 12px">You can paste a list with one name per line or separated by commas. Use the names people will recognise, e.g. “Grandma”.</p>
-      <div id="msg" class="notice err hidden" role="alert"></div>
-      <ul class="people" id="list"></ul>
-      <p id="empty" class="muted small" style="margin:0">No names yet.</p>
-      <div class="row between" style="margin-top:10px">
-        <span class="muted small">“Can't draw” is for couples who already buy for each other. It works both ways.</span>
-        <button class="btn small" id="clear" type="button">Clear all</button>
+    <div class="row between" style="align-items:flex-start">
+      <div>
+        <div class="eyebrow">Organiser · Christmas 2026</div>
+        <h1 class="title" style="font-size:clamp(2rem,7vw,2.6rem)">Who's in the hat?</h1>
       </div>
-    </section>
-
-    <section class="card">
-      <h2>Details everyone sees</h2>
-      <div class="field"><label for="title">Title</label><input type="text" id="title" maxlength="50"></div>
-      <div class="grid2">
-        <div class="field"><label for="budget">Budget</label><input type="text" id="budget" placeholder="e.g. $50" maxlength="20"></div>
-        <div class="field"><label for="date">Gift exchange</label><input type="date" id="date"></div>
-      </div>
-      <div class="field"><label for="note">Note (optional)</label><textarea id="note" maxlength="240" placeholder="We'll open gifts after Christmas lunch."></textarea></div>
-      <label class="check"><input type="checkbox" id="noPairs"> <span>No swapping pairs<br><span class="muted small">If A draws B, B won't draw A.</span></span></label>
-    </section>
-
-    <div class="row end" style="margin-bottom:16px">
-      <button class="btn primary big" id="go" type="button">Put names in the hat</button>
+      <span class="sync hidden" id="sync" aria-live="polite"></span>
     </div>
 
-    <section class="card hidden" id="out">
-      <div id="check" class="notice ok"></div>
-      <h2>Publish it</h2>
+    <!-- Connect (once per device) -->
+    <section class="card hidden" id="connect">
+      <h2>Connect to the site</h2>
+      <p class="muted">So the names save straight to the family page, this page needs a GitHub access token that can edit only the <code>secret-santa</code> repository. You do this once on this device.</p>
       <ol class="steps-list">
-        <li><button class="btn primary small" id="download" type="button">Download family.json</button></li>
-        <li>Open <a href="https://github.com/avias8/secret-santa/upload/main" target="_blank" rel="noopener">the upload page on GitHub</a>, drop the file in and press <b>Commit changes</b>. It replaces last year's file.</li>
-        <li>After a minute the family page shows everyone's names.</li>
+        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">New fine-grained token</a> on GitHub.</li>
+        <li>Name it “Secret Santa”. Under <b>Repository access</b> pick <b>Only select repositories</b> → <code>secret-santa</code>.</li>
+        <li>Under <b>Permissions → Repository permissions</b>, set <b>Contents</b> to <b>Read and write</b>.</li>
+        <li>Generate the token, copy it, and paste it here.</li>
       </ol>
-      <p class="muted small" style="margin:12px 0 0">Putting names in the hat again makes a new draw. Only re-publish before anyone has drawn, or their result will change.</p>
+      <form id="tokenForm" class="row" style="margin-top:14px" autocomplete="off">
+        <input type="password" id="token" placeholder="github_pat_…" style="flex:1;min-width:0" aria-label="GitHub token" autocomplete="off" spellcheck="false">
+        <button class="btn primary" type="submit">Connect</button>
+      </form>
+      <p class="muted small" style="margin:10px 0 0">The token stays in this browser only. Anyone with it could edit this one repo, so don't share it.</p>
+      <div id="connectErr" class="notice err hidden" style="margin:12px 0 0" role="alert"></div>
     </section>
 
-    <p class="foot"><a href="../">← Family page</a></p>
+    <section id="loading" class="card hidden"><p class="muted" style="margin:0">Loading the list…</p></section>
+
+    <div id="app" class="hidden">
+      <div id="err" class="notice err hidden" role="alert"></div>
+
+      <!-- The live list -->
+      <section class="card">
+        <form id="add" class="add" autocomplete="off">
+          <input type="text" id="name" placeholder="Add a name…" maxlength="40" aria-label="Name to add">
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <div id="msg" class="notice err hidden" style="margin:12px 0 0" role="alert"></div>
+
+        <div class="row between" style="margin:18px 0 6px">
+          <h2 style="margin:0" id="countTitle">No names yet</h2>
+          <span class="muted small" id="lastSaved"></span>
+        </div>
+        <ul class="roster" id="list"></ul>
+        <div class="roster-empty" id="empty">
+          <p style="margin:0">The hat's empty. Add the first name above.</p>
+          <p class="muted small" style="margin:6px 0 0">Tip: paste a list of names to add them all at once.</p>
+        </div>
+      </section>
+
+      <!-- Draw -->
+      <section class="card" id="drawCard">
+        <div id="openState">
+          <h2>When everyone's in</h2>
+          <p class="muted">Close the hat to make the draw. Each name comes out exactly once, nobody gets themself, and you won't see who got whom.</p>
+          <button class="btn primary big" id="drawBtn" type="button">Close the hat &amp; draw</button>
+        </div>
+        <div id="drawnState" class="hidden">
+          <div class="notice ok" id="drawnMsg" style="margin-bottom:12px"></div>
+          <p class="muted small">Adding or removing a name now cancels the draw, so check with everyone first.</p>
+          <div class="row">
+            <a class="btn" href="../" target="_blank" rel="noopener">Open family page</a>
+            <button class="btn" id="reopenBtn" type="button">Reopen the hat</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Details -->
+      <details class="card details">
+        <summary><h2 style="display:inline">Details</h2> <span class="muted small">budget, date, note</span></summary>
+        <div style="margin-top:14px">
+          <div class="field"><label for="title">Title</label><input type="text" id="title" maxlength="50"></div>
+          <div class="grid2">
+            <div class="field"><label for="budget">Budget</label><input type="text" id="budget" placeholder="e.g. $50" maxlength="20"></div>
+            <div class="field"><label for="date">Gift exchange</label><input type="date" id="date"></div>
+          </div>
+          <div class="field"><label for="note">Note</label><textarea id="note" maxlength="240" placeholder="We'll open gifts after Christmas lunch."></textarea></div>
+          <label class="check"><input type="checkbox" id="noPairs"> <span>No swapping pairs<br><span class="muted small">If A draws B, B won't draw A.</span></span></label>
+        </div>
+      </details>
+
+      <p class="foot"><a href="../">← Family page</a> · <button class="btn link small" id="disconnect" type="button">Disconnect this device</button></p>
+    </div>
   </main>
 
   <script src="../app.js"></script>
   <script>
   (function () {
-    const S = Santa, $ = S.$;
-    const KEY = "santa-admin";
-    const state = Object.assign({ title: "Family Secret Santa", budget: "", date: "2026-12-25", note: "", noPairs: true, people: [] }, S.store.get(KEY, {}));
-    let file = null;
-    const save = () => S.store.set(KEY, state);
-    const say = (t) => { $("#msg").textContent = t; $("#msg").classList.toggle("hidden", !t); };
-    const stale = () => { file = null; $("#out").classList.add("hidden"); };
+    const S = Santa, $ = S.$, gh = S.gh;
+    const blankDoc = () => ({ v: 2, id: "", title: "Family Secret Santa", budget: "", date: "2026-12-25", note: "", noPairs: true, people: [], drawn: null, updated: null });
+    const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
+    const clone = (o) => JSON.parse(JSON.stringify(o));
 
-    // What's live right now?
-    fetch("../family.json?" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((f) => {
-      if (!f || !f.people) return;
-      const when = f.created ? new Date(f.created).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
-      $("#live").textContent = `Published now: ${f.people.length} names (${f.people.join(", ")})${when ? ", put in the hat " + when : ""}.`;
-      $("#live").classList.remove("hidden");
-    }).catch(() => {});
+    let doc = null, sha = null;
+    let queue = Promise.resolve();
 
+    const show = (id) => ["connect", "loading", "app"].forEach((s) => $("#" + s).classList.toggle("hidden", s !== id));
+    const say = (box, t) => { $(box).textContent = t || ""; $(box).classList.toggle("hidden", !t); };
+    function sync(state, text) {
+      const s = $("#sync"); s.classList.remove("hidden");
+      s.dataset.state = state; s.textContent = text;
+    }
+
+    // ---- saving: one change at a time, re-applied on top of the latest list if someone else saved first
+    function commit(mutate, message) {
+      queue = queue.then(async () => {
+        say("#err", "");
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const before = doc;
+          const work = clone(doc || blankDoc());
+          if (mutate(work) === false) return;
+          work.updated = new Date().toISOString();
+          doc = work; render();                       // show it straight away
+          sync("saving", "Saving…");
+          try {
+            sha = await gh.save(work, sha, message);
+            sync("saved", "Saved ✓");
+            return;
+          } catch (e) {
+            if (e.conflict) { const r = await gh.load(); doc = r.data; sha = r.sha; continue; }
+            doc = before; render();
+            sync("error", "Not saved");
+            say("#err", e.message);
+            return;
+          }
+        }
+        sync("error", "Not saved"); say("#err", "Someone else keeps changing the list. Reload and try again.");
+      });
+      return queue;
+    }
+
+    // Changing who's in the hat after the draw means drawing again.
+    function okToChangePeople() {
+      return !doc || !doc.drawn || confirm("The names have already been drawn. Changing the list cancels the draw, and anyone who already drew will need to draw again. Continue?");
+    }
+
+    // ---- list actions
     function add(raw) {
-      const dupes = [];
-      for (const n of raw.split(/[\n,;]+/).map(S.norm).filter(Boolean)) {
-        if (state.people.some((p) => S.same(p.name, n))) { dupes.push(n); continue; }
-        state.people.push({ name: n, partner: "" });
-      }
-      say(dupes.length ? `Already in the hat: ${dupes.join(", ")}. Each name can only go in once.` : "");
-      changed();
+      const names = raw.split(/[\n,;]+/).map(S.norm).filter(Boolean);
+      if (!names.length) return;
+      const have = (doc ? doc.people : []).map((p) => p.name);
+      const fresh = [], dupes = [];
+      for (const n of names) ([...have, ...fresh].some((m) => S.same(m, n)) ? dupes : fresh).push(n);
+      say("#msg", dupes.length ? `Already in the hat: ${dupes.join(", ")}.` : "");
+      if (!fresh.length || !okToChangePeople()) return;
+      commit((d) => {
+        for (const n of fresh) if (!d.people.some((p) => S.same(p.name, n))) d.people.push({ name: n, partner: "" });
+        d.drawn = null;
+      }, `Add ${fresh.join(", ")}`);
     }
     function remove(name) {
-      state.people = state.people.filter((p) => p.name !== name);
-      for (const p of state.people) if (p.partner === name) p.partner = "";
-      changed();
+      if (!okToChangePeople()) return;
+      commit((d) => {
+        d.people = d.people.filter((p) => p.name !== name);
+        for (const p of d.people) if (p.partner === name) p.partner = "";
+        d.drawn = null;
+      }, `Remove ${name}`);
     }
     function setPartner(name, partner) {
-      for (const p of state.people)
-        if (p.name === name || p.partner === name || (partner && (p.name === partner || p.partner === partner))) p.partner = "";
-      if (partner) {
-        state.people.find((p) => p.name === name).partner = partner;
-        state.people.find((p) => p.name === partner).partner = name;
-      }
-      changed();
+      if (!okToChangePeople()) { render(); return; }
+      commit((d) => {
+        for (const p of d.people)
+          if (p.name === name || p.partner === name || (partner && (p.name === partner || p.partner === partner))) p.partner = "";
+        const a = d.people.find((p) => p.name === name), b = d.people.find((p) => p.name === partner);
+        if (a && b) { a.partner = partner; b.partner = name; }
+        d.drawn = null;
+      }, partner ? `Couple: ${name} & ${partner}` : `Uncouple ${name}`);
     }
-    function changed() { save(); stale(); render(); }
 
+    // ---- render
+    const hue = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.codePointAt(0)) % 360; return h; };
     function render() {
-      $("#list").replaceChildren(...state.people.map((p, i) => S.el("li", {},
-        S.el("span", { class: "num" }, i + 1),
-        S.el("span", { class: "nm" }, p.name),
-        S.el("select", { "aria-label": `${p.name} can't draw`, onchange: (e) => setPartner(p.name, e.target.value) },
-          S.el("option", { value: "" }, "can't draw…"),
-          state.people.filter((o) => o.name !== p.name).map((o) => S.el("option", { value: o.name, selected: o.name === p.partner }, o.name))),
-        S.el("button", { class: "x", type: "button", "aria-label": `Remove ${p.name}`, title: "Remove", onclick: () => remove(p.name) }, "×"))));
-      $("#empty").classList.toggle("hidden", state.people.length > 0);
-      $("#go").disabled = state.people.length < 3;
+      const d = doc || blankDoc();
+      const people = d.people;
+      $("#countTitle").textContent = people.length ? `${people.length} ${people.length === 1 ? "name" : "names"} in the hat` : "No names yet";
+      $("#lastSaved").textContent = d.updated ? "Updated " + new Date(d.updated).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+      $("#empty").classList.toggle("hidden", people.length > 0);
+      $("#list").replaceChildren(...people.map((p) => S.el("li", { class: "roster-item" },
+        S.el("span", { class: "avatar", style: `--h:${hue(p.name)}`, "aria-hidden": "true" }, [...p.name][0].toUpperCase()),
+        S.el("span", { class: "who" },
+          S.el("span", { class: "nm" }, p.name),
+          S.el("label", { class: "couple" },
+            S.el("span", {}, p.partner ? "♥ with" : "Couple?"),
+            S.el("select", { "aria-label": `${p.name} is a couple with`, onchange: (e) => setPartner(p.name, e.target.value) },
+              S.el("option", { value: "" }, p.partner ? "— nobody" : "—"),
+              people.filter((o) => o.name !== p.name).map((o) => S.el("option", { value: o.name, selected: o.name === p.partner }, o.name))))),
+        S.el("button", { class: "remove", type: "button", title: `Remove ${p.name}`, "aria-label": `Remove ${p.name}`, onclick: () => remove(p.name) }, "Remove"))));
+
+      $("#openState").classList.toggle("hidden", !!d.drawn);
+      $("#drawnState").classList.toggle("hidden", !d.drawn);
+      $("#drawBtn").disabled = people.length < 3;
+      $("#drawBtn").title = people.length < 3 ? "Add at least 3 names" : "";
+      if (d.drawn) $("#drawnMsg").textContent = `✓ Drawn ${new Date(d.drawn.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. ${people.length} names, each drawn exactly once. The family can draw now.`;
+
+      for (const id of ["title", "budget", "date", "note"]) if (document.activeElement !== $("#" + id)) $("#" + id).value = d[id] || "";
+      $("#noPairs").checked = !!d.noPairs;
     }
 
+    // ---- wire up
     $("#add").addEventListener("submit", (e) => { e.preventDefault(); add($("#name").value); $("#name").value = ""; $("#name").focus(); });
     $("#name").addEventListener("paste", (e) => { const t = e.clipboardData.getData("text"); if (/[\n,;]/.test(t)) { e.preventDefault(); add(t); } });
-    $("#clear").addEventListener("click", () => { if (state.people.length && confirm("Remove every name?")) { state.people = []; changed(); } });
 
-    for (const id of ["title", "budget", "date", "note"]) {
-      const input = $("#" + id);
-      input.value = state[id] || "";
-      input.addEventListener("input", () => { state[id] = input.value; save(); stale(); });
-    }
-    $("#noPairs").checked = state.noPairs;
-    $("#noPairs").addEventListener("change", (e) => { state.noPairs = e.target.checked; save(); stale(); });
-
-    $("#go").addEventListener("click", () => {
-      say("");
+    $("#drawBtn").addEventListener("click", () => {
+      say("#err", "");
+      let draws;
       try {
-        const pairs = S.makeDraw(state.people, state.noPairs);
-        const names = state.people.map((p) => p.name);
-        S.verify(pairs, names);
-        const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
-        file = {
-          v: 1, id, created: new Date().toISOString(),
-          title: S.norm(state.title) || "Family Secret Santa",
-          budget: S.norm(state.budget), date: state.date, note: state.note.trim(),
-          people: names,
-          draws: Object.fromEntries(pairs.map((p) => [p.giver, S.scramble(p.receiver)]))
-        };
-        $("#check").textContent = `✓ ${names.length} names in the hat. Checked: every name drawn exactly once, nobody draws themself${state.people.some((p) => p.partner) ? ", no couples draw each other" : ""}.`;
-        $("#out").classList.remove("hidden");
-        $("#out").scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch (err) { say(err.message); window.scrollTo({ top: 0, behavior: "smooth" }); }
+        const pairs = S.makeDraw(doc.people, doc.noPairs);
+        S.verify(pairs, doc.people.map((p) => p.name));
+        draws = Object.fromEntries(pairs.map((p) => [p.giver, S.scramble(p.receiver)]));
+      } catch (e) { say("#err", e.message); return; }
+      commit((d) => {
+        // only accept the draw if the list didn't change underneath it
+        const names = d.people.map((p) => p.name).sort().join("\n");
+        if (names !== Object.keys(draws).sort().join("\n")) { say("#err", "The list changed while drawing. Press draw again."); return false; }
+        d.drawn = { at: new Date().toISOString(), draws };
+        d.id = newId();
+      }, "Close the hat and draw");
+    });
+    $("#reopenBtn").addEventListener("click", () => {
+      if (confirm("Reopen the hat? This cancels the draw. Anyone who already drew will need to draw again.")) commit((d) => { d.drawn = null; }, "Reopen the hat");
     });
 
-    $("#download").addEventListener("click", () => {
-      if (!file) return;
-      const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2) + "\n"], { type: "application/json" }));
-      const a = S.el("a", { href: url, download: "family.json" }); document.body.append(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    let detailTimer;
+    function saveDetails() {
+      clearTimeout(detailTimer);
+      detailTimer = setTimeout(() => commit((d) => {
+        d.title = S.norm($("#title").value) || "Family Secret Santa";
+        d.budget = S.norm($("#budget").value);
+        d.date = $("#date").value;
+        d.note = $("#note").value.trim();
+        d.noPairs = $("#noPairs").checked;
+      }, "Update details"), 900);
+    }
+    for (const id of ["title", "budget", "date", "note"]) $("#" + id).addEventListener("input", saveDetails);
+    $("#noPairs").addEventListener("change", saveDetails);
+
+    $("#disconnect").addEventListener("click", () => {
+      if (confirm("Forget the GitHub token on this device? You'll need to paste it again to edit the list.")) { gh.setToken(""); location.reload(); }
     });
 
-    render();
+    $("#tokenForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const t = $("#token").value.trim();
+      if (!t) return;
+      gh.setToken(t);
+      $("#token").value = "";
+      start();
+    });
+
+    async function start() {
+      if (!gh.token()) { show("connect"); return; }
+      show("loading");
+      try {
+        const r = await gh.load();
+        doc = r.data; sha = r.sha;
+        render(); show("app");
+        sync("saved", "Live");
+      } catch (e) {
+        gh.setToken("");
+        say("#connectErr", e.message);
+        show("connect");
+      }
+    }
+    start();
   })();
   </script>
 </body>
