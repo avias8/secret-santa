@@ -265,22 +265,59 @@
   }
   let lock = getLock();
 
+  // ---- Shared marks: who has drawn, on any phone. Taken tags are crossed out for everyone.
+  let taken = {};            // name -> true once drawn anywhere
+  let allowTaken = false;    // set by the organiser's unlock link: lets a crossed-out tag be picked once
+  async function refreshMarks() {
+    const got = await S.marks.all(fam.id, names);
+    for (const n of names) if (got[n] !== null) taken[n] = got[n];
+    paintTaken();
+  }
+  function paintTaken() {
+    for (const btn of document.querySelectorAll("#tags .tag")) {
+      const n = btn.dataset.name, isTaken = !!taken[n] && !allowTaken;
+      btn.classList.toggle("taken", isTaken);
+      btn.setAttribute("aria-disabled", isTaken);
+      btn.setAttribute("aria-label", isTaken ? `${n}, already drawn` : n);
+      const stamp = btn.querySelector(".stamp");
+      if (isTaken && !stamp) btn.querySelector(".tag-body").append(S.el("span", { class: "stamp", "aria-hidden": "true" }, "Drawn"));
+      if (!isTaken && stamp) stamp.remove();
+    }
+    const left = names.filter((n) => !taken[n]).length;
+    const anyTaken = names.some((n) => taken[n]);
+    $("#leftCount").textContent = anyTaken ? (left ? `${left} of ${names.length} still to draw` : "Everyone has drawn! 🎉") : "";
+  }
+  let marksTimer = null;
+
   function goPick() {
     if (lock) { goLocked(); return; }
     me = null; S.store.set(meKey, "");
     $("#tags").replaceChildren(...sorted.map((n, i) => {
       const wrap = tagEl(n, i);
       const btn = wrap.firstChild;
+      btn.dataset.name = n;
       btn.setAttribute("aria-label", n);
       btn.addEventListener("click", () => {
+        if (btn.classList.contains("taken")) {
+          Sound.bell(330, 0, 0.4, 0.1);
+          btn.classList.remove("nope"); void btn.offsetWidth; btn.classList.add("nope");
+          say(`Ho ho ho! ${n} has already pulled a name from my sack. Pick your own tag!`);
+          return;
+        }
         Sound.ding();
         btn.classList.add("picked");
         setTimeout(() => { history.pushState({ s: "draw" }, ""); goDraw(n); }, reduced ? 0 : 380);
       });
       return wrap;
     }));
+    paintTaken();
     show("pick");
-    say("Ho ho ho! Merry Christmas! Find your name tag and give it a tap.");
+    say(names.some((n) => taken[n])
+      ? "Ho ho ho! Merry Christmas! Find your name tag. Crossed-out tags have already drawn."
+      : "Ho ho ho! Merry Christmas! Find your name tag and give it a tap.");
+    refreshMarks();
+    clearInterval(marksTimer);
+    marksTimer = setInterval(() => { if (!$("#pick").classList.contains("hidden")) refreshMarks(); }, 20000);
   }
 
   function goDraw(name) {
@@ -310,6 +347,8 @@
   function goLocked() {
     goDraw(lock);
     draw({ quiet: true });
+    // A phone locked before marks existed (or while the service was down) records its owner now.
+    S.marks.get(fam.id, lock).then((m) => { if (m === false) S.marks.hit(fam.id, lock); });
   }
 
   function showFacts() {
@@ -325,10 +364,24 @@
     const token = fam.drawn.draws[me];
     if (!token) { say("Hmm, your name isn't on my list this year. Ask the organiser!"); return; }
     busy = true;
-    const recipient = S.unscramble(token);
     const again = !!lock;
+    if (!lock && !allowTaken) {
+      // The tag list may be a few seconds old: check again that nobody drew as this person.
+      $("#drawBtn").disabled = true;
+      const already = await S.marks.get(fam.id, me);
+      if (already) {
+        taken[me] = true;
+        say(`Ho ho ho! ${me} has already pulled a name from my sack. If that's you on a new phone, ask the organiser.`);
+        $("#drawBtn").textContent = "Already drawn";
+        busy = false;
+        return;
+      }
+      $("#drawBtn").disabled = false;
+    }
+    const recipient = S.unscramble(token);
     if (!lock) {                       // first draw on this phone: lock it to this person
-      lock = me; setLock(me);
+      lock = me; setLock(me); allowTaken = false;
+      taken[me] = true; S.marks.hit(fam.id, me);
       $("#notMe").classList.add("hidden");
       $("#lockNote").textContent = `🔒 This phone is ${me}'s`;
       $("#lockNote").classList.remove("hidden");
@@ -398,10 +451,13 @@
   let unlocked = false;
   if (params.has("unlock")) {
     if (params.get("unlock") === await S.unlockCode(fam.id)) {
-      clearLock(); lock = ""; S.store.set(meKey, ""); unlocked = true;
+      clearLock(); lock = ""; S.store.set(meKey, ""); unlocked = true; allowTaken = true;
     }
     history.replaceState(null, "", location.pathname);
   }
+
+  // Know who has drawn before showing the tags (but don't wait long if the service is slow).
+  if (!lock) await Promise.race([refreshMarks(), new Promise((r) => setTimeout(r, 2500))]);
 
   history.replaceState({ s: "start" }, "");
   if (lock) goLocked();
@@ -410,5 +466,5 @@
     if (!unlocked && remembered && names.includes(remembered)) { history.pushState({ s: "draw" }, ""); goDraw(remembered); }
     else goPick();
   }
-  if (unlocked) say("Ho ho ho! This phone is unlocked. Whose turn is it? Tap your name tag.");
+  if (unlocked) say("Ho ho ho! This phone is unlocked. Whose turn is it? Tap your name tag. (Crossed-out tags can be picked this once.)");
 })();

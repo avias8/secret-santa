@@ -8,7 +8,11 @@ Open the page, tap your name tag, and reach into Santa's sack. Santa talks you t
 Once you draw, that phone is locked to you for this draw (kept in both localStorage and a cookie; either one restores the other).
 It always reopens on your own tag, and the browser back button stays there. Other names can't be picked on that phone.
 If two people share a phone, the organiser page has an unlock link (under "Two people sharing one phone?") to open on that phone.
-This stops casual peeking on the same phone; it can't stop someone using a different phone or a private window.
+Once someone draws, their tag is crossed out (faded, struck through, stamped "Drawn") on everyone's phone and can't be picked,
+and the draw button re-checks just before drawing. The organiser page lists who has drawn so far.
+These marks live in a free public counter service (abacus.jasoncameron.dev): one counter per person, keyed by a hash of the draw id
+and the name, so no names are sent. If the service is down, tags just aren't crossed out; the phone locks still work.
+The organiser's unlock link also lets a crossed-out tag be picked once (for someone who drew and then changed phones).
 Until the organiser closes the hat, Santa shows who's in so far. The 🔔 button turns the jingle bells off.
 
 ## For the organiser: `/admin/`

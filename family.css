@@ -132,6 +132,19 @@ h1 {
 }
 .tag .hand { font-family: "Caveat", "Segoe Print", cursive; font-weight: 700; font-size: 1.7rem; line-height: 1; overflow-wrap: anywhere; }
 .tag .done { position: absolute; top: 5px; right: 8px; font-size: .68rem; font-weight: 600; color: var(--pine); letter-spacing: .04em; }
+/* taken: crossed out, faded, stamped */
+.tag.taken { cursor: not-allowed; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .25)); }
+.tag.taken:hover, .tag.taken:focus-visible { animation: sway 5s ease-in-out infinite; }
+.tag.taken .tag-body { background: #d9cbb2; }
+.tag.taken .hand { color: rgba(58, 42, 32, .45); text-decoration: line-through; text-decoration-color: var(--berry); text-decoration-thickness: 3px; }
+.tag .stamp {
+  position: absolute; right: 6px; bottom: 4px; transform: rotate(-12deg);
+  font-size: .62rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--berry); border: 1.5px solid var(--berry); border-radius: 4px; padding: 0 4px; opacity: .85;
+}
+.tag.nope, .tag.taken.nope { animation: nope .4s ease-in-out; }
+@keyframes nope { 20% { transform: translateX(-6px) rotate(-2deg); } 40% { transform: translateX(6px) rotate(2deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+.left-count { margin: 18px 0 0; font-size: .9rem; color: var(--gold); font-weight: 600; min-height: 1.2em; }
 .tag.small .tag-body { min-height: 52px; }
 .tag.small .hand { font-size: 1.35rem; }
 .tag.small { cursor: default; }

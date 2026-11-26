@@ -110,10 +110,37 @@
 
   // Code for the organiser's "unlock this phone" link, derived from the draw's id
   // (so it changes with every new draw and needs nothing extra stored).
-  async function unlockCode(id) {
-    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("santa-unlock:" + id));
-    return Array.from(new Uint8Array(hash).slice(0, 4), (b) => b.toString(16).padStart(2, "0")).join("");
+  async function sha256hex(text) {
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
   }
+  async function unlockCode(id) { return (await sha256hex("santa-unlock:" + id)).slice(0, 8); }
+
+  // ---------- shared "who has drawn" marks ----------
+  // A free public counter service holds one counter per person: above zero means "has drawn".
+  // Keys are hashes of the draw id and the name, so no names are ever sent.
+  // If the service is unreachable everything still works; tags just aren't crossed out.
+  const MARKS = "https://abacus.jasoncameron.dev";
+  const marks = {
+    async url(op, id, name) { return `${MARKS}/${op}/fss-${id}/${(await sha256hex("drawn:" + id + ":" + name)).slice(0, 24)}`; },
+    // -> true / false, or null when the service couldn't be reached
+    async get(id, name) {
+      try {
+        const res = await fetch(await marks.url("get", id, name), { cache: "no-store" });
+        if (res.status === 404) return false;
+        if (!res.ok) return null;
+        return (await res.json()).value > 0;
+      } catch (_) { return null; }
+    },
+    async all(id, names) {
+      const out = {};
+      await Promise.all(names.map(async (n) => { out[n] = await marks.get(id, n); }));
+      return out;
+    },
+    async hit(id, name) {
+      try { await fetch(await marks.url("hit", id, name), { cache: "no-store" }); } catch (_) {}
+    }
+  };
 
   // ---------- helpers ----------
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -190,5 +217,5 @@
     }
   };
 
-  window.Santa = { norm, same, shuffle, makeDraw, verify, scramble, unscramble, unlockCode, $, el, store, formatDate, snow, gh };
+  window.Santa = { norm, same, shuffle, makeDraw, verify, scramble, unscramble, unlockCode, marks, $, el, store, formatDate, snow, gh };
 })();

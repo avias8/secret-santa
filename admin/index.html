@@ -72,6 +72,7 @@
         </div>
         <div id="drawnState" class="hidden">
           <div class="notice ok" id="drawnMsg" style="margin-bottom:12px"></div>
+          <p class="small" id="drawnSoFar" style="margin:0 0 12px"></p>
           <p class="muted small">Adding or removing a name now cancels the draw, so check with everyone first.</p>
           <div class="row">
             <a class="btn" href="../" target="_blank" rel="noopener">Open family page</a>
@@ -227,6 +228,11 @@
       $("#drawBtn").disabled = people.length < 3;
       $("#drawBtn").title = people.length < 3 ? "Add at least 3 names" : "";
       if (d.drawn && d.id) S.unlockCode(d.id).then((c) => { $("#unlockUrl").textContent = new URL("../?unlock=" + c, location.href).href; });
+      if (d.drawn && d.id) S.marks.all(d.id, people.map((p) => p.name)).then((m) => {
+        const done = people.filter((p) => m[p.name]).map((p) => p.name), waiting = people.filter((p) => m[p.name] === false).map((p) => p.name);
+        if (people.every((p) => m[p.name] === null)) { $("#drawnSoFar").textContent = "Couldn't check who has drawn right now."; return; }
+        $("#drawnSoFar").textContent = `Drawn so far (${done.length} of ${people.length}): ${done.join(", ") || "nobody yet"}.` + (waiting.length ? ` Still to draw: ${waiting.join(", ")}.` : " Everyone's done! 🎉");
+      });
       if (d.drawn) $("#drawnMsg").textContent = `✓ Drawn ${new Date(d.drawn.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. ${people.length} names, each drawn exactly once. The family can draw now.`;
 
       for (const id of ["title", "budget", "date", "note"]) if (document.activeElement !== $("#" + id)) $("#" + id).value = d[id] || "";
