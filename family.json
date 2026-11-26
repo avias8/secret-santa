@@ -3,7 +3,7 @@
   "id": "",
   "title": "Family Secret Santa",
   "budget": "30",
-  "date": "2026-12-25",
+  "date": "2026-12-24",
   "note": "",
   "noPairs": true,
   "people": [
@@ -25,5 +25,5 @@
     }
   ],
   "drawn": null,
-  "updated": "2026-11-26T16:51:58.539Z"
+  "updated": "2026-11-26T16:52:02.848Z"
 }
