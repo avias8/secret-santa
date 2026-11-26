@@ -2,39 +2,151 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Secret Santa Draw</title>
-  <meta name="description" content="Draw names for a Secret Santa and send everyone a private link to their recipient.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Family Secret Santa</title>
+  <meta name="description" content="Christmas 2026: find your name and draw who you're buying for.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#1e4d3b">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="wrap">
-    <header class="top"><a class="brand" href="index.html">Secret <span>Santa</span></a></header>
+  <main class="wrap center">
+    <svg class="holly" viewBox="0 0 54 30" aria-hidden="true">
+      <path d="M27 18C19 6 8 4 2 9c5 1 6 5 4 8 4-1 7 1 7 5 4-3 9-4 14-4z" fill="var(--pine)"/>
+      <path d="M27 18c8-12 19-14 25-9-5 1-6 5-4 8-4-1-7 1-7 5-4-3-9-4-14-4z" fill="var(--pine)" opacity=".85"/>
+      <circle cx="23" cy="20" r="4" fill="var(--berry)"/><circle cx="31" cy="20" r="4" fill="var(--berry)"/><circle cx="27" cy="14.5" r="4" fill="var(--berry)"/>
+    </svg>
+    <div class="eyebrow">Christmas 2026</div>
+    <h1 class="title" id="title">Secret Santa</h1>
 
-    <section class="hero">
-      <h1>Draw names, keep the secret.</h1>
-      <p class="lede">Enter your group, draw once, and send each person a private link that shows only who they're buying for.</p>
-      <div class="row" style="justify-content:center">
-        <a class="btn primary" href="names.html">Start with names</a>
-        <a class="btn hidden" id="resume" href="draw.html">See current draw</a>
+    <!-- loading / not ready -->
+    <section id="wait"><p class="lede">Checking the hat…</p></section>
+    <section id="notReady" class="hidden">
+      <p class="lede">The names aren't in the hat yet. Check back soon!</p>
+    </section>
+    <section id="error" class="hidden">
+      <p class="lede">Something went wrong loading the draw. Try refreshing the page.</p>
+    </section>
+
+    <!-- step 1: who are you -->
+    <section id="pick" class="hidden">
+      <p class="lede">Find your name, then draw who you're buying for.</p>
+      <div class="names" id="names"></div>
+    </section>
+
+    <!-- step 2: draw -->
+    <section id="drawStep" class="hidden">
+      <p class="lede" id="hello"></p>
+      <div class="slip" id="slip" aria-live="polite"><span class="q">?</span></div>
+      <div id="before">
+        <button class="btn primary big" id="drawBtn" type="button">Draw a name</button>
+        <div><button class="btn link" id="notMe" type="button">Not you? Go back</button></div>
+      </div>
+      <div id="after" class="hidden">
+        <div class="facts" id="facts"></div>
+        <p class="note" id="note"></p>
+        <p class="muted small">Keep it secret! 🤫</p>
+        <button class="btn" id="done" type="button">Done</button>
       </div>
     </section>
 
-    <section class="how">
-      <div class="card"><div class="n">1</div><h3>Enter names</h3><p class="muted small">Add everyone taking part, plus partners who shouldn't draw each other.</p></div>
-      <div class="card"><div class="n">2</div><h3>Draw</h3><p class="muted small">Every name is drawn exactly once and nobody gets themself.</p></div>
-      <div class="card"><div class="n">3</div><h3>Send links</h3><p class="muted small">Each link reveals one recipient, or pass one phone around the room.</p></div>
-    </section>
-
-    <p class="muted small" style="margin-top:28px;text-align:center">Nothing is uploaded. Names stay in this browser; the assignment lives inside each person's link.</p>
+    <p class="foot">Each name is in the hat exactly once. <a href="admin/">Organiser</a></p>
   </main>
+
   <script src="app.js"></script>
   <script>
-    Santa.snow();
-    if (Santa.load().draw) Santa.$("#resume").classList.remove("hidden");
+  (async function () {
+    const S = Santa, $ = S.$;
+    const show = (id) => ["wait", "notReady", "error", "pick", "drawStep"].forEach((s) => $("#" + s).classList.toggle("hidden", s !== id));
+
+    let fam;
+    try {
+      const res = await fetch("family.json?" + Date.now(), { cache: "no-store" });
+      if (res.status === 404) { show("notReady"); return; }
+      if (!res.ok) throw new Error(res.status);
+      fam = await res.json();
+      if (!fam.people || !fam.people.length) { show("notReady"); return; }
+    } catch (_) { show("error"); return; }
+
+    if (fam.title) { $("#title").textContent = fam.title; document.title = fam.title; }
+    S.snow();
+
+    const memKey = "santa-drawn:" + fam.id;
+    const drawn = S.store.get(memKey, {});
+    let me = null;
+
+    function renderNames() {
+      $("#names").replaceChildren(...fam.people.slice().sort((a, b) => a.localeCompare(b)).map((name) =>
+        S.el("button", { class: "name-btn", type: "button", onclick: () => choose(name) },
+          name, drawn[name] ? S.el("span", { class: "tick" }, "✓ drawn") : "")));
+      show("pick");
+    }
+
+    function resetSlip() {
+      const slip = $("#slip");
+      slip.className = "slip";
+      slip.replaceChildren(S.el("span", { class: "q" }, "?"));
+    }
+
+    function choose(name) {
+      me = name;
+      resetSlip();
+      $("#hello").textContent = drawn[name] ? `Welcome back, ${name}. You've already drawn.` : `Hi ${name}! Ready?`;
+      $("#drawBtn").textContent = drawn[name] ? "Show my name again" : "Draw a name";
+      $("#drawBtn").disabled = false;
+      $("#before").classList.remove("hidden");
+      $("#after").classList.add("hidden");
+      show("drawStep");
+      window.scrollTo({ top: 0 });
+    }
+
+    function land(recipient) {
+      const slip = $("#slip");
+      slip.className = "slip landed";
+      $("#hello").textContent = `${me}, you're the Secret Santa for…`;
+      slip.replaceChildren(S.el("span", { class: "final" }, recipient));
+      const facts = $("#facts"); facts.replaceChildren();
+      if (fam.budget) facts.append(S.el("span", { class: "chip" }, "🎁 Budget " + fam.budget));
+      if (fam.date) facts.append(S.el("span", { class: "chip" }, "📅 " + S.formatDate(fam.date)));
+      $("#note").textContent = fam.note || "";
+      $("#note").classList.toggle("hidden", !fam.note);
+      $("#before").classList.add("hidden");
+      $("#after").classList.remove("hidden");
+    }
+
+    $("#drawBtn").addEventListener("click", () => {
+      const token = fam.draws[me];
+      if (!token) { $("#hello").textContent = "Your name isn't in this year's draw. Ask the organiser."; return; }
+      const recipient = S.unscramble(token);
+      $("#drawBtn").disabled = true;
+      const again = drawn[me];
+      drawn[me] = true; S.store.set(memKey, drawn);
+
+      if (again || matchMedia("(prefers-reduced-motion: reduce)").matches) { land(recipient); return; }
+
+      // A short shuffle through the other names, slowing down, then the real result.
+      const others = fam.people.filter((n) => n !== me);
+      const seq = [];
+      while (seq.length < 18) seq.push(...S.shuffle(others));
+      const slip = $("#slip");
+      let i = 0, delay = 55;
+      (function tick() {
+        if (i >= 18) { land(recipient); return; }
+        slip.replaceChildren(S.el("span", { class: "spin" }, seq[i++]));
+        delay *= 1.14;
+        setTimeout(tick, delay);
+      })();
+    });
+
+    $("#notMe").addEventListener("click", renderNames);
+    $("#done").addEventListener("click", () => { resetSlip(); me = null; renderNames(); });
+
+    renderNames();
+  })();
   </script>
 </body>
 </html>

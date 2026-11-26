@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Organiser Setup</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <main class="wrap wide">
+    <div class="eyebrow">Organiser</div>
+    <h1 class="title" style="font-size:clamp(2rem,7vw,2.6rem)">Set up the hat</h1>
+    <p class="muted">Enter the family's names before anyone draws. The draw happens here, in advance, so no name can ever come out twice. You won't see who got whom, so you can take part too.</p>
+
+    <div id="live" class="notice ok hidden"></div>
+
+    <section class="card">
+      <h2>Names</h2>
+      <form id="add" class="row" autocomplete="off">
+        <input type="text" id="name" placeholder="Type a name and press Enter" maxlength="40" style="flex:1;min-width:0" aria-label="Name">
+        <button class="btn primary" type="submit">Add</button>
+      </form>
+      <p class="muted small" style="margin:8px 0 12px">You can paste a list with one name per line or separated by commas. Use the names people will recognise, e.g. “Grandma”.</p>
+      <div id="msg" class="notice err hidden" role="alert"></div>
+      <ul class="people" id="list"></ul>
+      <p id="empty" class="muted small" style="margin:0">No names yet.</p>
+      <div class="row between" style="margin-top:10px">
+        <span class="muted small">“Can't draw” is for couples who already buy for each other. It works both ways.</span>
+        <button class="btn small" id="clear" type="button">Clear all</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Details everyone sees</h2>
+      <div class="field"><label for="title">Title</label><input type="text" id="title" maxlength="50"></div>
+      <div class="grid2">
+        <div class="field"><label for="budget">Budget</label><input type="text" id="budget" placeholder="e.g. $50" maxlength="20"></div>
+        <div class="field"><label for="date">Gift exchange</label><input type="date" id="date"></div>
+      </div>
+      <div class="field"><label for="note">Note (optional)</label><textarea id="note" maxlength="240" placeholder="We'll open gifts after Christmas lunch."></textarea></div>
+      <label class="check"><input type="checkbox" id="noPairs"> <span>No swapping pairs<br><span class="muted small">If A draws B, B won't draw A.</span></span></label>
+    </section>
+
+    <div class="row end" style="margin-bottom:16px">
+      <button class="btn primary big" id="go" type="button">Put names in the hat</button>
+    </div>
+
+    <section class="card hidden" id="out">
+      <div id="check" class="notice ok"></div>
+      <h2>Publish it</h2>
+      <ol class="steps-list">
+        <li><button class="btn primary small" id="download" type="button">Download family.json</button></li>
+        <li>Open <a href="https://github.com/avias8/secret-santa/upload/main" target="_blank" rel="noopener">the upload page on GitHub</a>, drop the file in and press <b>Commit changes</b>. It replaces last year's file.</li>
+        <li>After a minute the family page shows everyone's names.</li>
+      </ol>
+      <p class="muted small" style="margin:12px 0 0">Putting names in the hat again makes a new draw. Only re-publish before anyone has drawn, or their result will change.</p>
+    </section>
+
+    <p class="foot"><a href="../">← Family page</a></p>
+  </main>
+
+  <script src="../app.js"></script>
+  <script>
+  (function () {
+    const S = Santa, $ = S.$;
+    const KEY = "santa-admin";
+    const state = Object.assign({ title: "Family Secret Santa", budget: "", date: "2026-12-25", note: "", noPairs: true, people: [] }, S.store.get(KEY, {}));
+    let file = null;
+    const save = () => S.store.set(KEY, state);
+    const say = (t) => { $("#msg").textContent = t; $("#msg").classList.toggle("hidden", !t); };
+    const stale = () => { file = null; $("#out").classList.add("hidden"); };
+
+    // What's live right now?
+    fetch("../family.json?" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((f) => {
+      if (!f || !f.people) return;
+      const when = f.created ? new Date(f.created).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+      $("#live").textContent = `Published now: ${f.people.length} names (${f.people.join(", ")})${when ? ", put in the hat " + when : ""}.`;
+      $("#live").classList.remove("hidden");
+    }).catch(() => {});
+
+    function add(raw) {
+      const dupes = [];
+      for (const n of raw.split(/[\n,;]+/).map(S.norm).filter(Boolean)) {
+        if (state.people.some((p) => S.same(p.name, n))) { dupes.push(n); continue; }
+        state.people.push({ name: n, partner: "" });
+      }
+      say(dupes.length ? `Already in the hat: ${dupes.join(", ")}. Each name can only go in once.` : "");
+      changed();
+    }
+    function remove(name) {
+      state.people = state.people.filter((p) => p.name !== name);
+      for (const p of state.people) if (p.partner === name) p.partner = "";
+      changed();
+    }
+    function setPartner(name, partner) {
+      for (const p of state.people)
+        if (p.name === name || p.partner === name || (partner && (p.name === partner || p.partner === partner))) p.partner = "";
+      if (partner) {
+        state.people.find((p) => p.name === name).partner = partner;
+        state.people.find((p) => p.name === partner).partner = name;
+      }
+      changed();
+    }
+    function changed() { save(); stale(); render(); }
+
+    function render() {
+      $("#list").replaceChildren(...state.people.map((p, i) => S.el("li", {},
+        S.el("span", { class: "num" }, i + 1),
+        S.el("span", { class: "nm" }, p.name),
+        S.el("select", { "aria-label": `${p.name} can't draw`, onchange: (e) => setPartner(p.name, e.target.value) },
+          S.el("option", { value: "" }, "can't draw…"),
+          state.people.filter((o) => o.name !== p.name).map((o) => S.el("option", { value: o.name, selected: o.name === p.partner }, o.name))),
+        S.el("button", { class: "x", type: "button", "aria-label": `Remove ${p.name}`, title: "Remove", onclick: () => remove(p.name) }, "×"))));
+      $("#empty").classList.toggle("hidden", state.people.length > 0);
+      $("#go").disabled = state.people.length < 3;
+    }
+
+    $("#add").addEventListener("submit", (e) => { e.preventDefault(); add($("#name").value); $("#name").value = ""; $("#name").focus(); });
+    $("#name").addEventListener("paste", (e) => { const t = e.clipboardData.getData("text"); if (/[\n,;]/.test(t)) { e.preventDefault(); add(t); } });
+    $("#clear").addEventListener("click", () => { if (state.people.length && confirm("Remove every name?")) { state.people = []; changed(); } });
+
+    for (const id of ["title", "budget", "date", "note"]) {
+      const input = $("#" + id);
+      input.value = state[id] || "";
+      input.addEventListener("input", () => { state[id] = input.value; save(); stale(); });
+    }
+    $("#noPairs").checked = state.noPairs;
+    $("#noPairs").addEventListener("change", (e) => { state.noPairs = e.target.checked; save(); stale(); });
+
+    $("#go").addEventListener("click", () => {
+      say("");
+      try {
+        const pairs = S.makeDraw(state.people, state.noPairs);
+        const names = state.people.map((p) => p.name);
+        S.verify(pairs, names);
+        const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
+        file = {
+          v: 1, id, created: new Date().toISOString(),
+          title: S.norm(state.title) || "Family Secret Santa",
+          budget: S.norm(state.budget), date: state.date, note: state.note.trim(),
+          people: names,
+          draws: Object.fromEntries(pairs.map((p) => [p.giver, S.scramble(p.receiver)]))
+        };
+        $("#check").textContent = `✓ ${names.length} names in the hat. Checked: every name drawn exactly once, nobody draws themself${state.people.some((p) => p.partner) ? ", no couples draw each other" : ""}.`;
+        $("#out").classList.remove("hidden");
+        $("#out").scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) { say(err.message); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    });
+
+    $("#download").addEventListener("click", () => {
+      if (!file) return;
+      const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2) + "\n"], { type: "application/json" }));
+      const a = S.el("a", { href: url, download: "family.json" }); document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    });
+
+    render();
+  })();
+  </script>
+</body>
+</html>
