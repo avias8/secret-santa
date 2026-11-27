@@ -288,9 +288,31 @@
     $("#leftCount").textContent = anyTaken ? (left ? `${left} of ${names.length} still to draw` : "Everyone has drawn! 🎉") : "";
   }
   let marksTimer = null;
+  let confirmedTaken = null;   // a crossed-out name this phone has confirmed is really them (new phone)
+
+  // "Are you sure?" card for picking a crossed-out name. Resolves true (continue) or false (go back).
+  function askSure(name) {
+    return new Promise((resolve) => {
+      const close = (ok) => { document.removeEventListener("keydown", onKey); box.classList.add("closing"); setTimeout(() => box.remove(), 180); resolve(ok); };
+      const onKey = (e) => { if (e.key === "Escape") close(false); };
+      const yes = S.el("button", { class: "btn gold", type: "button", onclick: () => close(true) }, `Yes, I'm ${name}`);
+      const no = S.el("button", { class: "btn ghost", type: "button", onclick: () => close(false) }, "Go back");
+      const box = S.el("div", { class: "confirm", role: "alertdialog", "aria-modal": "true", "aria-labelledby": "confirmTitle", "aria-describedby": "confirmBody" },
+        S.el("div", { class: "confirm-card" },
+          S.el("h2", { id: "confirmTitle" }, `Are you sure you're ${name}?`),
+          S.el("div", { id: "confirmBody" },
+            S.el("p", {}, `${name} has already drawn on another phone. If you continue, this phone will show ${name}'s tag and stay locked to ${name}.`),
+            S.el("p", { class: "warn" }, "You won't be able to select a different name after.")),
+          S.el("div", { class: "confirm-actions" }, yes, no)));
+      box.addEventListener("click", (e) => { if (e.target === box) close(false); });
+      document.body.append(box); document.addEventListener("keydown", onKey);
+      no.focus();   // the safe choice has focus, so a stray Enter doesn't lock the phone
+    });
+  }
 
   function goPick() {
     if (lock) { goLocked(); return; }
+    confirmedTaken = null;
     me = null; S.store.set(meKey, "");
     $("#tags").replaceChildren(...sorted.map((n, i) => {
       const wrap = tagEl(n, i);
@@ -300,8 +322,13 @@
       btn.addEventListener("click", () => {
         if (btn.classList.contains("taken")) {
           Sound.bell(330, 0, 0.4, 0.1);
-          btn.classList.remove("nope"); void btn.offsetWidth; btn.classList.add("nope");
-          say(`Ho ho ho! ${n} has already pulled a name from my sack. Pick your own tag!`);
+          askSure(n).then((ok) => {
+            if (!ok) { say("Ho ho ho! No problem. Find your own tag and give it a tap."); return; }
+            confirmedTaken = n;
+            Sound.ding();
+            btn.classList.add("picked");
+            setTimeout(() => { history.pushState({ s: "draw" }, ""); goDraw(n); }, reduced ? 0 : 380);
+          });
           return;
         }
         Sound.ding();
@@ -313,7 +340,7 @@
     paintTaken();
     show("pick");
     say(names.some((n) => taken[n])
-      ? "Ho ho ho! Merry Christmas! Find your name tag. Crossed-out tags have already drawn."
+      ? "Ho ho ho! Merry Christmas! Find your name tag. Crossed-out tags have already drawn. New phone? You can still tap yours."
       : "Ho ho ho! Merry Christmas! Find your name tag and give it a tap.");
     refreshMarks();
     clearInterval(marksTimer);
@@ -335,10 +362,11 @@
     $("#before").classList.remove("hidden");
     $("#after").classList.add("hidden");
     $("#drawBtn").disabled = false;
-    $("#drawBtn").textContent = lock ? "Peek at my tag" : "🎁 Reach into the sack";
+    const back = !!lock || confirmedTaken === name;
+    $("#drawBtn").textContent = back ? "Peek at my tag" : "🎁 Reach into the sack";
     show("drawStep");
     window.scrollTo({ top: 0 });
-    say(lock
+    say(back
       ? `Welcome back, ${name}! Your tag is safe in my sack. Tap to peek at it again.`
       : `Hi ${name}! Reach into my sack and pull out a name. No peeking!`);
   }
@@ -364,20 +392,20 @@
     const token = fam.drawn.draws[me];
     if (!token) { say("Hmm, your name isn't on my list this year. Ask the organiser!"); return; }
     busy = true;
-    const again = !!lock;
-    if (!lock && !allowTaken) {
-      // The tag list may be a few seconds old: check again that nobody drew as this person.
+    if (!lock && !allowTaken && confirmedTaken !== me) {
+      // The list may be a few seconds old: check again that nobody drew as this person.
       $("#drawBtn").disabled = true;
       const already = await S.marks.get(fam.id, me);
+      $("#drawBtn").disabled = false;
       if (already) {
         taken[me] = true;
-        say(`Ho ho ho! ${me} has already pulled a name from my sack. If that's you on a new phone, ask the organiser.`);
-        $("#drawBtn").textContent = "Already drawn";
         busy = false;
-        return;
+        if (!(await askSure(me))) { say("Ho ho ho! No problem. Find your own tag and give it a tap."); return; }
+        confirmedTaken = me;
+        return draw(opts);
       }
-      $("#drawBtn").disabled = false;
     }
+    const again = !!lock || confirmedTaken === me;
     const recipient = S.unscramble(token);
     if (!lock) {                       // first draw on this phone: lock it to this person
       lock = me; setLock(me); allowTaken = false;
